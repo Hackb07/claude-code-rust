@@ -45,6 +45,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "required": ["file_path"]
                 }
             }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "Write",
+                "description": "Write content to a file",
+                "parameters": {
+                    "type": "object",
+                    "required": ["file_path", "content"],
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "The path of the file to write to"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The content to write to the file"
+                        }
+                    }
+                }
+            }
         }
     ]);
 
@@ -75,14 +96,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let function_name = tool_call["function"]["name"].as_str().unwrap();
                 let arguments = tool_call["function"]["arguments"].as_str().unwrap();
 
+                let call_args: Value = serde_json::from_str(arguments)?;
+
                 if function_name == "Read" {
-                    let call_args: Value = serde_json::from_str(arguments)?;
                     let file_path = call_args["file_path"].as_str().unwrap();
                     let contents = std::fs::read_to_string(file_path)?;
                     messages.push(json!({
                         "role": "tool",
                         "tool_call_id": tool_call["id"],
                         "content": contents
+                    }));
+                } else if function_name == "Write" {
+                    let file_path = call_args["file_path"].as_str().unwrap();
+                    let content = call_args["content"].as_str().unwrap();
+                    std::fs::write(file_path, content)?;
+                    messages.push(json!({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": ""
                     }));
                 }
             }
