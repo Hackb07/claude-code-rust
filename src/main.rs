@@ -28,54 +28,70 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::with_config(config);
 
-    let response: Value = client
-        .chat()
-        .create_byot(json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": args.prompt
-                }
-            ],
-            "model": "anthropic/claude-haiku-4.5",
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "Read",
-                        "description": "Read and return the contents of a file",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "file_path": {
-                                    "type": "string",
-                                    "description": "The path to the file to read"
-                                }
-                            },
-                            "required": ["file_path"]
+    let tools = json!([
+        {
+            "type": "function",
+            "function": {
+                "name": "Read",
+                "description": "Read and return the contents of a file",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "The path to the file to read"
                         }
-                    }
+                    },
+                    "required": ["file_path"]
                 }
-            ]
-        }))
-        .await?;
-
-    let message = &response["choices"][0]["message"];
-
-    if let Some(tool_calls) = message["tool_calls"].as_array() {
-        if let Some(tool_call) = tool_calls.first() {
-            let function_name = tool_call["function"]["name"].as_str().unwrap();
-            let arguments = tool_call["function"]["arguments"].as_str().unwrap();
-
-            if function_name == "Read" {
-                let args: Value = serde_json::from_str(arguments)?;
-                let file_path = args["file_path"].as_str().unwrap();
-                let contents = std::fs::read_to_string(file_path)?;
-                print!("{}", contents);
             }
         }
-    } else if let Some(content) = message["content"].as_str() {
-        println!("{}", content);
+    ]);
+
+    let mut messages: Vec<Value> = vec![
+        json!({"role": "user", "content": args.prompt})
+    ];
+
+    loop {
+        let response: Value = client
+            .chat()
+            .create_byot(json!({
+                "messages": messages,
+                "model": "anthropic/claude-haiku-4.5",
+                "tools": tools
+            }))
+            .await?;
+
+        let message = response["choices"][0]["message"].clone();
+        messages.push(message.clone());
+
+        let has_tool_calls = message["tool_calls"]
+            .as_array()
+            .map_or(false, |calls| !calls.is_empty());
+
+        if has_tool_calls {
+            let tool_calls = message["tool_calls"].as_array().unwrap();
+            for tool_call in tool_calls {
+                let function_name = tool_call["function"]["name"].as_str().unwrap();
+                let arguments = tool_call["function"]["arguments"].as_str().unwrap();
+
+                if function_name == "Read" {
+                    let call_args: Value = serde_json::from_str(arguments)?;
+                    let file_path = call_args["file_path"].as_str().unwrap();
+                    let contents = std::fs::read_to_string(file_path)?;
+                    messages.push(json!({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": contents
+                    }));
+                }
+            }
+        } else {
+            if let Some(content) = message["content"].as_str() {
+                println!("{}", content);
+            }
+            break;
+        }
     }
 
     Ok(())
