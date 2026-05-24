@@ -66,6 +66,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "Bash",
+                "description": "Execute a shell command",
+                "parameters": {
+                    "type": "object",
+                    "required": ["command"],
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The command to execute"
+                        }
+                    }
+                }
+            }
         }
     ]);
 
@@ -114,6 +131,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         "role": "tool",
                         "tool_call_id": tool_call["id"],
                         "content": ""
+                    }));
+                } else if function_name == "Bash" {
+                    let command = call_args["command"].as_str().unwrap();
+                    let output = if cfg!(target_os = "windows") {
+                        std::process::Command::new("cmd")
+                            .args(["/C", command])
+                            .output()
+                    } else {
+                        std::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(command)
+                            .output()
+                    }?;
+                    let mut result = String::from_utf8_lossy(&output.stdout).to_string();
+                    if !output.stderr.is_empty() {
+                        if !result.is_empty() { result.push('\n'); }
+                        result.push_str(&String::from_utf8_lossy(&output.stderr));
+                    }
+                    messages.push(json!({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": result
                     }));
                 }
             }
