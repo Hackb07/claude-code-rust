@@ -1,6 +1,6 @@
 [![progress-banner](https://backend.codecrafters.io/progress/claude-code/ae83f53a-73d2-48a1-9b6b-be1d83238f82)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-# CodeCrafters Claude Code — Rust
+# Claude Code — Rust
 
 A minimal AI-powered coding assistant built in Rust as part of the
 ["Build Your own Claude Code" Challenge](https://codecrafters.io/challenges/claude-code).
