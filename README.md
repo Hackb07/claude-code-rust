@@ -1,35 +1,68 @@
 [![progress-banner](https://backend.codecrafters.io/progress/claude-code/ae83f53a-73d2-48a1-9b6b-be1d83238f82)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for Rust solutions to the
+# CodeCrafters Claude Code — Rust
+
+A minimal AI coding assistant built in Rust as part of the
 ["Build Your own Claude Code" Challenge](https://codecrafters.io/challenges/claude-code).
 
-Claude Code is an AI coding assistant that uses Large Language Models (LLMs) to
-understand code and perform actions through tool calls. In this challenge,
-you'll build your own Claude Code from scratch by implementing an LLM-powered
-coding assistant.
+Uses LLMs via OpenRouter (OpenAI-compatible API) with an agent loop that
+advertises tools, executes them, and feeds results back to the model until the
+task is complete.
 
-Along the way you'll learn about HTTP RESTful APIs, OpenAI-compatible tool
-calling, agent loop, and how to integrate multiple tools into an AI assistant.
+## Features
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+- **Agent Loop** — Continuously sends conversation history + tools to the LLM,
+  processes tool calls, and repeats until a final text response is produced.
+- **Read Tool** — Reads a file from the filesystem and returns its contents.
+- **Write Tool** — Writes content to a file (creates or overwrites).
+- **Bash Tool** — Executes shell commands and captures stdout/stderr output.
 
-# Passing the first stage
+## Architecture
 
-The entry point for your `claude-code` implementation is in `src/main.rs`. Study
-and uncomment the relevant code, and submit to pass the first stage:
-
-```sh
-codecrafters submit
+```mermaid
+flowchart TD
+    A["User Prompt"] --> B["Initialize Messages<br>[role: user]"]
+    B --> C["Send to LLM API<br>(OpenRouter)"]
+    C --> D{"Response has<br>tool_calls?"}
+    D -- Yes --> E["Execute Tool<br>(Read / Write / Bash)"]
+    E --> F["Append Tool Result<br>[role: tool]"]
+    F --> C
+    D -- No --> G["Print Final Response"]
+    G --> H["Exit"]
 ```
 
-# Stage 2 & beyond
+## Usage
 
-Note: This section is for stages 2 and beyond.
+```sh
+export OPENROUTER_API_KEY="sk-..."
+./your_program.sh -p "What is the content of apple.py?"
+```
 
-1. Ensure you have `cargo (1.95)` installed locally.
-2. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-3. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
+## Tools
+
+```mermaid
+flowchart LR
+    subgraph LLM["LLM"]
+        TC["tool_calls"]
+    end
+    subgraph Agent["Agent"]
+        R["Read"]
+        W["Write"]
+        B["Bash"]
+    end
+    TC -- "Read<br>file_path" --> R
+    TC -- "Write<br>file_path, content" --> W
+    TC -- "Bash<br>command" --> B
+    R --> Result["File Contents"]
+    W --> Result["Confirmation"]
+    B --> Result["stdout + stderr"]
+    Result --> Agent
+```
+
+## Build
+
+Requires Rust 1.95+.
+
+```sh
+cargo build --release
+```
